@@ -7,6 +7,19 @@ instead of Google Gemini as the model provider.
 Verified on Windows 11 against `google/artemis` @ `351ca84` (September 2026) with
 `deepseek-v4.1-flash` (multimodal, tool calling, 1M-token context).
 
+> **Quick start (pre-adapted fork — recommended):** this branch already contains every
+> change described in §5, so you can skip the manual port:
+>
+> ```powershell
+> git clone https://github.com/EdCa361/artemis_opencode_deepseek.git C:\tools\artemis
+> ```
+>
+> The repository's default branch IS this branch (alternatively:
+> `git clone -b feat/opencode-go-deepseek ...`). Then follow §2 (prerequisites), run the
+> commands in §3 (toolchain install — still required), and continue from §4. Skip §5
+> (already applied). Each user needs **their own OpenCode Go subscription and API key** —
+> do not share keys.
+
 ---
 
 ## 1. Why OpenCode Go
@@ -202,11 +215,13 @@ license: Apache-2.0
 
 ## 10. Keeping in sync with upstream
 
-This branch is based on `google/artemis@351ca84`. To update:
+This branch is based on `google/artemis@351ca84`. If your clone's `origin` is this fork,
+add the upstream remote once and rebase:
 
 ```powershell
-git fetch origin main
-git rebase origin/main   # resolve conflicts in the 7 touched files if any
+git remote add upstream https://github.com/google/artemis.git   # once
+git fetch upstream main
+git rebase upstream/main   # resolve conflicts in the 7 touched files if any
 ```
 
 The changes are intentionally small and generic (multi-provider lenses, gateway headers,
