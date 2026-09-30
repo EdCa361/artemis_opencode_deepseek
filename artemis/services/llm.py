@@ -893,6 +893,35 @@ def get_google_llm(
     return ModelFactory.create_model(ep)
 
 
+def get_lens_llm(model_name: str, temperature: float = 0.0) -> BaseChatModel:
+    """Resolve a background-lens model string to a chat model.
+
+    Supports ``"<provider>/<model>"`` strings (e.g.
+    ``"custom/deepseek-v4.1-flash"``) so auxiliary lenses - the Flash step
+    summarizer and the chunk capsule generator - can run on the same
+    non-Google providers as the main agent. Plain model names keep the
+    historical Google-only behavior, so existing configs are unaffected.
+    """
+    name = str(model_name or "").strip()
+    if "/" in name:
+        provider_str, _, model_part = name.partition("/")
+        try:
+            provider = ModelProvider.from_string(provider_str)
+        except ValueError:
+            provider = None
+        if provider is not None and model_part:
+            if provider == ModelProvider.GOOGLE:
+                return get_google_llm(model_name=model_part, temperature=temperature)
+            return ModelFactory.create_model(
+                ModelEndpoint(
+                    provider=provider,
+                    model_name=model_part,
+                    temperature=temperature,
+                )
+            )
+    return get_google_llm(model_name=name or "gemini-2.5-flash-lite", temperature=temperature)
+
+
 def _resolve_endpoint(
     ctx: ArtemisContext,
     name: str,

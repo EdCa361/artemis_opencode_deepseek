@@ -152,6 +152,32 @@ class Agent(AgentBase):
                 )
                 return
 
+            # Skip the Google-specific warmup when the primary configured models
+            # do not ride the Google provider (e.g. a custom OpenAI-compatible
+            # endpoint): warming Gemini pools would only waste quota and time.
+            try:
+                from artemis.config.llm import get_default_llm_config
+                from artemis.llm.google import is_google_provider
+
+                llm_cfg = get_default_llm_config()
+                google_bound = any(
+                    is_google_provider(str(getattr(node, "provider", "")))
+                    for node in (llm_cfg.planner, llm_cfg.operator)
+                )
+            except Exception as exc:
+                logger.debug(f"Pre-warm provider check skipped: {exc}", exc_info=True)
+                google_bound = True  # keep the historical behavior on uncertainty
+            if not google_bound:
+                logger.info(
+                    "Skipping Gemini pre-warming: primary models use a non-Google provider."
+                )
+                publish_startup_progress(
+                    "model_ready",
+                    "Model connection will initialize on first use",
+                    session_id=self._session_id,
+                )
+                return
+
             # 1. Pre-warm Native SDK client
             client = genai.Client(api_key=key)
 

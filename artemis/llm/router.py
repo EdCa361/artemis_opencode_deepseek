@@ -23,6 +23,7 @@ from enum import StrEnum
 import hashlib
 import os
 from typing import Any
+from uuid import uuid4
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, Field
@@ -383,6 +384,13 @@ class ModelFactory:
             }
             if endpoint.reasoning_effort:
                 kwargs["reasoning_effort"] = endpoint.reasoning_effort
+            if base_url and "opencode.ai" in base_url:
+                # OpenCode gateways ask external clients to identify themselves
+                # and send a stable session id (routing + prompt caching).
+                kwargs["default_headers"] = {
+                    "User-Agent": "artemis-mobile-agent/1.0",
+                    "x-opencode-session": f"artemis-{uuid4().hex[:16]}",
+                }
             return ChatOpenAI(**{k: v for k, v in kwargs.items() if v is not None})
 
         else:

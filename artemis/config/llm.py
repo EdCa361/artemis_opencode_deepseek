@@ -59,14 +59,18 @@ __all__ = [
 
 def lightweight_judge_default() -> "LLMWithFallback":
     """Factory default for the lightweight judge nodes (pixel safety net and
-    planner validation): a flash-lite model at temperature 0."""
+    planner validation): a cheap fast model at temperature 0.
+
+    Runs on the same OpenAI-compatible provider as the rest of the agent
+    (DeepSeek via OpenCode Go) so no Google credential is required.
+    """
     return LLMWithFallback(
-        provider="google",
-        model="gemini-3.5-flash-lite",
+        provider="custom",
+        model="deepseek-v4-flash",
         temperature=0.0,
         fallback=LLM(
-            provider="google",
-            model="gemini-3.1-flash-lite",
+            provider="custom",
+            model="deepseek-v4.1-flash",
             temperature=0.0,
         ),
     )
