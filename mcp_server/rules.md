@@ -2,9 +2,28 @@
 
 Write executable tests based on device behavior verified with **ARTEMIS**. Before authoring a test, explore the target application and confirm its screens, transitions, and interactions. Use ARTEMIS device actions or ADB commands to investigate software and hardware behavior instead of assuming how an interaction works.
 
+## Default execution flow: CLI blocking mode (no polling)
+
+**When you have shell access, run tasks with the CLI in blocking mode — a single call that returns only when the task finishes.** Do NOT start `mobile_run_task` and then repeatedly poll `mobile_manage_task` status: polling burns tokens and is unnecessary. The CLI queues through the Artemis Daemon (same device locks and FIFO queue) and blocks until completion.
+
+```bash
+uv run artemis run "<goal>" --profile pro --locked-app <package> --device-serial <serial> --test-name <name>
+```
+
+- On success the output includes `✅ Task completed successfully!` and `Session: <uuid>`; failures exit non-zero (e.g. `✖ Task cancelled`).
+- Default to `--profile pro` for end-to-end flows that touch app state; `--profile flash` is fine for trivial read-only checks.
+- Windows: if `uv` is not on PATH, call the venv executable directly (`.venv/Scripts/artemis.exe` on Windows, `.venv/bin/artemis` elsewhere), redirect the output to a log file and read its tail. PowerShell may surface the CLI's stderr banner as a cosmetic `NativeCommandError` — trust the exit code.
+- **Reading results:** the CLI does not print the final report. Read it with `mobile_inspect_trace` (MCP) using the `Session:` uuid, or from the trace directory (`traces/<session-id>/`).
+- **MCP-only environments** (no shell access): `mobile_run_task` remains valid and non-blocking; rely on its completion wakeup (when a `conversation_id` is provided) instead of tight polling, with a fallback timer. The MCP remains the preferred path for result/trace inspection, quick screen checks (`mobile_get_device_state`), environment diagnosis (`mobile_diagnose`) and mid-flight steering (`mobile_manage_task` inject/stop).
+
+**Gotchas seen in practice:**
+- UI changes (carousel swipes, screen transitions) can take ~1–2 s to settle, and the accessibility hierarchy can serve stale state; verify visually with `adb shell screencap` + file-hash comparison, waiting ~2 s after the gesture (read the image only if the hash changed).
+- Cancelled runs may leave only partial data under `traces/<name>_FAIL_<timestamp>/`.
+- A human can watch or stop runs in the web dashboard (`http://127.0.0.1:8000`).
+
 ### 1. The Runnable Code Principle & ARTEMIS Exploration
 - **When tasked with authoring tests**, deliver runnable test code with verified interactions and explicit wait conditions.
-- Before writing any test code, you must use the ARTEMIS MCP tools to interactively run and explore the target application. This allows you to discover the exact sequence of UI states, transitions, and required interactions.
+- Before writing any test code, you must use ARTEMIS (CLI blocking runs — see the default execution flow —, or the MCP tools) to interactively explore the target application. This allows you to discover the exact sequence of UI states, transitions, and required interactions.
 - Analyze the user's target testing framework to exploit its native capabilities and maximize test stability.
 - **Timing & Latency Management (Exploration vs. Execution)**:
   - **Precise Timing in Final Code**: While ARTEMIS's AI exploration inherently involves model latency and is not strictly time-precise, you must bridge this gap in your final deliverables. Use ARTEMIS to discover and verify the interaction path, then implement exact, deterministic timing and wait conditions (`sleep`, explicit/implicit waits) in your authored test scripts, as local test execution runs without LLM overhead.
@@ -32,7 +51,7 @@ Deeply understand and select between ARTEMIS's dual execution models (**ARTEMIS 
 
 ### 3. Device & Environment Constraints & Multi-Device Management
 - **Device Selection & Multi-Device Execution**: ARTEMIS supports multi-device execution and per-device concurrency. You can control device targeting via two modes:
-  - **Direct Device Specification**: Explicitly provide the target phone's serial number via `device_serial` to `mobile_run_task` or `mobile_get_device_state`. Tasks targeting distinct devices run concurrently without blocking each other.
+  - **Direct Device Specification**: Explicitly provide the target phone's serial number via `device_serial` to `mobile_run_task` / `mobile_get_device_state`, or `--device-serial <serial>` on the CLI `artemis run`. Tasks targeting distinct devices run concurrently without blocking each other.
   - **Automatic Device Selection**: When `device_serial` is omitted or set to `None`, ARTEMIS automatically selects an available connected device or allocates an idle device from the device pool.
 - **Prioritize User Choice for Device Selection**:
   - When multiple connected devices or emulators are detected, or whenever device selection is ambiguous, **YOU MUST PRIORITIZE ASKING THE USER** to select or confirm their preferred device serial before launching a task.
